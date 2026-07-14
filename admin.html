@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>주문 취합 관리 — 잇올 독학관리학원</title>
+<style>
+  :root {
+    --navy: #1f2a44;
+    --accent: #2f6fed;
+    --bg: #f4f6fa;
+    --line: #dde3ee;
+    --text: #222b3a;
+    --muted: #6b7688;
+    --ok: #1a7f4e;
+    --warn: #b3261e;
+    --amber: #9a6700;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; background: var(--bg); color: var(--text); line-height: 1.55; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 80px; }
+  header { background: var(--navy); color: #fff; border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+  header h1 { font-size: 18px; }
+  header .sub { font-size: 12px; opacity: .8; margin-top: 2px; }
+  .conn { font-size: 12px; padding: 6px 12px; border-radius: 20px; background: rgba(255,255,255,.12); }
+  .conn.ok { background: #1a7f4e; }
+  .conn.err { background: #b3261e; }
+  nav { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  nav button { padding: 10px 16px; font-size: 14px; border: 1px solid var(--line); background: #fff; border-radius: 8px; cursor: pointer; color: var(--muted); }
+  nav button.on { background: var(--navy); color: #fff; border-color: var(--navy); font-weight: 600; }
+  .panel { display: none; }
+  .panel.on { display: block; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; color: var(--navy); margin-bottom: 12px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input[type=text], input[type=password], input[type=number], input[type=date], select, textarea {
+    padding: 9px 11px; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .btn { padding: 9px 16px; font-size: 14px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+  .btn.ghost { background: #fff; color: var(--accent); }
+  .btn.gray { background: #fff; color: var(--muted); border-color: var(--line); }
+  .btn.danger { background: #fff; color: var(--warn); border-color: #f0b9b5; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { background: #f0f3f9; color: var(--navy); font-size: 12px; white-space: nowrap; position: sticky; top: 0; }
+  td.num, th.num { text-align: right; }
+  .table-scroll { overflow-x: auto; max-height: 560px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .tag { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 12px; white-space: nowrap; }
+  .tag.접수 { background: #eef3fe; color: var(--accent); }
+  .tag.지점승인 { background: #e7f5ee; color: var(--ok); }
+  .tag.반려 { background: #fdecea; color: var(--warn); }
+  .tag.확정 { background: #fdf3e0; color: var(--amber); }
+  .tag.결제완료 { background: #e7f5ee; color: var(--ok); }
+  .tag.출고 { background: #ececf2; color: var(--navy); }
+  .tag.취소 { background: #fdecea; color: var(--warn); }
+  .tag.dup { background: #fdecea; color: var(--warn); font-weight: 700; }
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .stat { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-size: 22px; font-weight: 700; color: var(--navy); margin-top: 2px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 12px 22px; border-radius: 24px; font-size: 14px; display: none; z-index: 50; }
+  textarea.paste { width: 100%; height: 160px; font-size: 13px; }
+  .warn-box { background: #fdf3e0; border: 1px solid #eeddb0; color: var(--amber); border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 10px; }
+  .setup-note { background: #eef3fe; border: 1px solid #cdddfa; border-radius: 8px; padding: 12px 14px; font-size: 13px; margin-bottom: 12px; }
+  @media (max-width: 640px) { header h1 { font-size: 16px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>이감 모의고사 주문 취합 관리</h1>
+      <div class="sub">잇올 독학관리학원 — 중앙 취합 시스템</div>
+    </div>
+    <span class="conn" id="connBadge">연결 확인 중</span>
+  </header>
+
+  <nav>
+    <button data-p="orders" class="on">주문 취합</button>
+    <button data-p="report">집계 리포트</button>
+    <button data-p="branches">지점 관리</button>
+    <button data-p="products">상품 관리</button>
+    <button data-p="import">수동 입력</button>
+    <button data-p="settings">설정</button>
+  </nav>
+
+  <!-- 주문 취합 -->
+  <div class="panel on" id="p-orders">
+    <div class="stat-row" id="orderStats"></div>
+    <div class="card">
+      <div class="row" style="margin-bottom:12px">
+        <input type="date" id="fFrom"> ~ <input type="date" id="fTo">
+        <select id="fBranch"><option value="">전체 지점</option></select>
+        <select id="fKind">
+          <option value="">전체 구분</option>
+          <option>학생</option><option>지점</option>
+        </select>
+        <select id="fStatus">
+          <option value="">전체 상태</option>
+          <option>접수</option><option>지점승인</option><option>반려</option><option>확정</option><option>결제완료</option><option>출고</option><option>취소</option>
+        </select>
+        <input type="text" id="fSearch" placeholder="검색 (주문번호·주문자·상품)">
+        <button class="btn ghost" id="btnReload">새로고침</button>
+        <button class="btn gray" id="btnCsvOrders">CSV 다운로드</button>
+      </div>
+      <div id="dupWarn"></div>
+      <div class="table-scroll">
+        <table id="ordersTable">
+          <thead><tr>
+            <th>주문번호</th><th>접수일시</th><th>구분</th><th>지점</th><th>주문자</th><th>상품</th>
+            <th class="num">수량</th><th class="num">금액</th><th>메모</th><th>상태</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="muted" style="margin-top:8px">상태를 변경하면 즉시 저장됩니다. 학생 주문은 지점이 승인(지점승인)한 것만 발주 대상으로 집계하는 것을 권장합니다. 중복 의심 표시는 같은 주문자가 같은 날 같은 상품을 두 번 이상 주문한 경우입니다.</p>
+    </div>
+  </div>
+
+  <!-- 집계 리포트 -->
+  <div class="panel" id="p-report">
+    <div class="card">
+      <div class="row" style="margin-bottom:12px">
+        <input type="date" id="rFrom"> ~ <input type="date" id="rTo">
+        <select id="rStatus">
+          <option value="">전체 상태 (취소·반려 제외)</option>
+          <option value="승인이상">지점승인 이상 (발주 대상)</option>
+          <option>접수</option><option>지점승인</option><option>확정</option><option>결제완료</option><option>출고</option>
+        </select>
+        <button class="btn ghost" id="btnReport">집계 실행</button>
+        <button class="btn gray" id="btnCsvReport">피벗 CSV 다운로드</button>
+      </div>
+      <div class="stat-row" id="reportStats"></div>
+      <h2>지점 × 상품 수량 집계</h2>
+      <div class="table-scroll" id="pivotBox"><p class="muted" style="padding:12px">집계 실행을 누르면 표가 생성됩니다.</p></div>
+      <h2 style="margin-top:18px">지점별 금액 정산</h2>
+      <div class="table-scroll" id="settleBox"></div>
+    </div>
+  </div>
+
+  <!-- 지점 관리 -->
+  <div class="panel" id="p-branches">
+    <div class="card">
+      <h2>지점 목록</h2>
+      <p class="muted" style="margin-bottom:10px">
+        지점을 추가·삭제하거나 사용 여부를 바꾼 뒤 반드시 "지점 저장"을 눌러 주세요. 저장하면 지점마다 링크 2개가 자동 생성됩니다.
+        학생 주문링크는 해당 지점 학생들에게 배포하는 주문 페이지이고, 학원 관리링크는 그 지점 담당자가 학생 주문을 취합·승인하는 페이지입니다.
+        관리링크는 지점 담당자에게만 전달하세요.
+      </p>
+      <div class="row" style="margin-bottom:10px">
+        <input type="text" id="newBranch" placeholder="새 지점명 (예: 강남점)" style="flex:1;min-width:200px">
+        <button class="btn ghost" id="btnAddBranch">지점 추가</button>
+        <button class="btn" id="btnSaveBranches">지점 저장</button>
+      </div>
+      <div class="row" style="margin-bottom:10px">
+        <textarea id="bulkBranches" class="paste" style="height:80px" placeholder="여러 지점 일괄 추가 — 한 줄에 지점명 하나씩 붙여넣기"></textarea>
+        <button class="btn ghost" id="btnBulkBranch">일괄 추가</button>
+      </div>
+      <div class="table-scroll">
+        <table id="branchTable">
+          <thead><tr><th>지점명</th><th>사용</th><th>학생 주문링크</th><th>학원 관리링크</th><th>삭제</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 상품 관리 -->
+  <div class="panel" id="p-products">
+    <div class="card">
+      <h2>상품 목록</h2>
+      <p class="muted" style="margin-bottom:10px">상품명과 단가를 수정한 뒤 "상품 저장"을 눌러 주세요. 단가 0원은 주문 페이지에 "단가 별도 안내"로 표시됩니다.</p>
+      <div class="row" style="margin-bottom:10px">
+        <input type="text" id="newProduct" placeholder="새 상품명" style="flex:1;min-width:200px">
+        <input type="number" id="newPrice" placeholder="단가(원)" style="width:120px">
+        <button class="btn ghost" id="btnAddProduct">상품 추가</button>
+        <button class="btn" id="btnSaveProducts">상품 저장</button>
+      </div>
+      <div class="table-scroll">
+        <table id="productTable">
+          <thead><tr><th>상품명</th><th class="num">단가(원)</th><th>판매</th><th>삭제</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 수동 입력 -->
+  <div class="panel" id="p-import">
+    <div class="card">
+      <h2>카톡·문자·엑셀 주문 수동 등록</h2>
+      <p class="muted" style="margin-bottom:10px">
+        전화·카톡·엑셀로 받은 주문을 붙여넣으면 표준 주문으로 변환해 등록합니다.
+        엑셀은 "지점(탭)상품(탭)수량" 열 순서로 복사해 붙여넣고, 텍스트는 한 줄에 "지점 / 상품 / 수량" 형식으로 입력하세요.
+      </p>
+      <textarea id="importText" class="paste" placeholder="예)&#10;강남점&#9;시즌5 파이널1 9모대비&#9;30&#10;분당점 / 시즌4 최상위 실전대비 / 20"></textarea>
+      <div class="row" style="margin-top:10px">
+        <input type="text" id="importManager" placeholder="접수 담당자 표기 (예: 본사 수동등록)" value="본사 수동등록">
+        <button class="btn ghost" id="btnParse">변환 미리보기</button>
+        <button class="btn" id="btnImportSubmit" disabled>주문 등록</button>
+      </div>
+      <div id="importPreview" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <!-- 설정 -->
+  <div class="panel" id="p-settings">
+    <div class="card">
+      <h2>시스템 연결 설정</h2>
+      <div class="setup-note">
+        최초 1회: 설치가이드에 따라 구글 Apps Script를 배포한 뒤, 발급된 웹 앱 URL(/exec)과 관리 토큰을 아래에 입력하고 저장하세요.
+        입력값은 이 브라우저에만 저장됩니다. config.js에 URL을 넣어 두면 URL 입력은 생략할 수 있습니다.
+      </div>
+      <label class="muted">Apps Script 웹 앱 URL</label>
+      <input type="text" id="setApi" style="width:100%;margin:4px 0 10px" placeholder="https://script.google.com/macros/s/....../exec">
+      <label class="muted">관리 토큰 (구글 시트 '설정' 시트에 표시됨)</label>
+      <input type="password" id="setToken" style="width:100%;margin:4px 0 10px" placeholder="관리 토큰">
+      <div class="row">
+        <button class="btn" id="btnSaveSettings">저장 후 연결 테스트</button>
+        <button class="btn danger" id="btnClearSettings">이 브라우저에서 지우기</button>
+      </div>
+      <p class="muted" id="settingsResult" style="margin-top:10px"></p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  var LS_API = "itall_api", LS_TOKEN = "itall_token";
+  var state = { orders: [], branches: [], products: [], importRows: [] };
+
+  function apiUrl() {
+    return localStorage.getItem(LS_API) || (window.ITALL_CONFIG && window.ITALL_CONFIG.apiUrl) || "";
+  }
+  function token() { return localStorage.getItem(LS_TOKEN) || ""; }
+  function won(n) { return (n || 0).toLocaleString("ko-KR"); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function toast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg; t.style.display = "block";
+    clearTimeout(t._h); t._h = setTimeout(function () { t.style.display = "none"; }, 2600);
+  }
+  function post(body) {
+    body.token = token();
+    return fetch(apiUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) throw new Error(res.error || "요청 실패");
+      return res;
+    });
+  }
+
+  // ---------- 탭 ----------
+  document.querySelectorAll("nav button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll("nav button").forEach(function (x) { x.classList.remove("on"); });
+      document.querySelectorAll(".panel").forEach(function (x) { x.classList.remove("on"); });
+      b.classList.add("on");
+      document.getElementById("p-" + b.dataset.p).classList.add("on");
+    });
+  });
+
+  // ---------- 데이터 로드 ----------
+  function setConn(cls, txt) {
+    var badge = document.getElementById("connBadge");
+    badge.className = "conn " + cls; badge.textContent = txt;
+  }
+  function loadAll() {
+    if (!apiUrl()) { setConn("err", "API 미설정 — 설정 탭 확인"); return Promise.resolve(); }
+    setConn("", "불러오는 중...");
+    return fetch(apiUrl() + "?action=all&token=" + encodeURIComponent(token()))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.error || "로드 실패");
+        state.orders = res.orders || [];
+        state.branches = res.branches || [];
+        state.products = res.products || [];
+        setConn("ok", "연결됨 — 주문 " + state.orders.length + "건");
+        renderAll();
+      })
+      .catch(function (e) { setConn("err", "연결 실패: " + e.message); });
+  }
+  function renderAll() {
+    renderFilters(); renderOrders(); renderBranches(); renderProducts();
+  }
+
+  // ---------- 주문 취합 ----------
+  // 중복 키: 지점 일괄주문은 지점 단위, 학생 주문은 학생(이름+연락처) 단위로 판단
+  function dupKeyOf(o) {
+    var day = (o.timestamp || "").slice(0, 10);
+    return o.kind === "학생"
+      ? "학생|" + o.branch + "|" + o.manager + "|" + o.phone + "|" + o.product + "|" + day
+      : "지점|" + o.branch + "|" + o.product + "|" + day;
+  }
+  function dupKeys() {
+    var seen = {}, dup = {};
+    state.orders.forEach(function (o) {
+      if (o.status === "취소" || o.status === "반려") return;
+      var k = dupKeyOf(o);
+      if (seen[k] && seen[k] !== o.orderId) dup[k] = true;
+      else seen[k] = o.orderId;
+    });
+    return dup;
+  }
+  function filteredOrders() {
+    var from = document.getElementById("fFrom").value;
+    var to = document.getElementById("fTo").value;
+    var br = document.getElementById("fBranch").value;
+    var kd = document.getElementById("fKind").value;
+    var st = document.getElementById("fStatus").value;
+    var q = document.getElementById("fSearch").value.trim().toLowerCase();
+    return state.orders.filter(function (o) {
+      var day = (o.timestamp || "").slice(0, 10);
+      if (from && day < from) return false;
+      if (to && day > to) return false;
+      if (br && o.branch !== br) return false;
+      if (kd && o.kind !== kd) return false;
+      if (st && o.status !== st) return false;
+      if (q) {
+        var hay = (o.orderId + " " + o.manager + " " + o.product + " " + o.branch).toLowerCase();
+        if (hay.indexOf(q) < 0) return false;
+      }
+      return true;
+    });
+  }
+  function renderFilters() {
+    ["fBranch"].forEach(function (id) {
+      var sel = document.getElementById(id);
+      var cur = sel.value;
+      sel.innerHTML = '<option value="">전체 지점</option>';
+      state.branches.forEach(function (b) {
+        var op = document.createElement("option");
+        op.value = b.name; op.textContent = b.name;
+        sel.appendChild(op);
+      });
+      sel.value = cur;
+    });
+  }
+  function renderOrders() {
+    var rows = filteredOrders();
+    var dup = dupKeys();
+    var tb = document.querySelector("#ordersTable tbody");
+    tb.innerHTML = "";
+    var totalQty = 0, totalAmt = 0, dupCount = 0;
+    rows.forEach(function (o) {
+      var excluded = o.status === "취소" || o.status === "반려";
+      var isDup = dup[dupKeyOf(o)] && !excluded;
+      if (isDup) dupCount++;
+      if (!excluded) { totalQty += o.qty; totalAmt += o.amount; }
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        "<td>" + esc(o.orderId) + (isDup ? ' <span class="tag dup">중복의심</span>' : "") + "</td>" +
+        "<td>" + esc((o.timestamp || "").slice(0, 16).replace("T", " ")) + "</td>" +
+        "<td>" + esc(o.kind || "지점") + "</td>" +
+        "<td>" + esc(o.branch) + "</td>" +
+        "<td>" + esc(o.manager) + "<br><span class='muted'>" + esc(o.phone) + "</span></td>" +
+        "<td>" + esc(o.product) + "</td>" +
+        "<td class='num'>" + won(o.qty) + "</td>" +
+        "<td class='num'>" + won(o.amount) + "</td>" +
+        "<td style='max-width:160px'>" + esc(o.memo) + "</td>" +
+        "<td></td>";
+      var sel = document.createElement("select");
+      ["접수", "지점승인", "반려", "확정", "결제완료", "출고", "취소"].forEach(function (s) {
+        var op = document.createElement("option");
+        op.value = s; op.textContent = s;
+        sel.appendChild(op);
+      });
+      sel.value = o.status || "접수";
+      sel.addEventListener("change", function () {
+        post({ action: "setStatus", orderId: o.orderId, product: o.product, status: sel.value })
+          .then(function () { o.status = sel.value; toast("상태 저장: " + o.orderId + " → " + sel.value); renderOrders(); })
+          .catch(function (e) { toast("저장 실패: " + e.message); sel.value = o.status; });
+      });
+      tr.lastElementChild.appendChild(sel);
+      tb.appendChild(tr);
+    });
+    document.getElementById("orderStats").innerHTML =
+      stat("표시 주문 행", rows.length + "건") +
+      stat("총 수량 (취소·반려 제외)", won(totalQty) + "부") +
+      stat("총 금액 (취소·반려 제외)", won(totalAmt) + "원") +
+      stat("중복 의심", dupCount + "건");
+    document.getElementById("dupWarn").innerHTML = dupCount
+      ? '<div class="warn-box">중복 의심 주문이 ' + dupCount + '건 있습니다. 지점에 확인 후 불필요한 건은 상태를 "취소"로 바꿔 정리하세요.</div>' : "";
+  }
+  function stat(k, v) { return '<div class="stat"><div class="k">' + k + '</div><div class="v">' + v + "</div></div>"; }
+
+  ["fFrom", "fTo", "fBranch", "fKind", "fStatus", "fSearch"].forEach(function (id) {
+    document.getElementById(id).addEventListener("input", renderOrders);
+  });
+  document.getElementById("btnReload").addEventListener("click", loadAll);
+  document.getElementById("btnCsvOrders").addEventListener("click", function () {
+    var rows = filteredOrders();
+    var csv = [["주문번호", "접수일시", "구분", "지점", "주문자", "연락처", "상품", "수량", "단가", "금액", "메모", "상태"]];
+    rows.forEach(function (o) {
+      csv.push([o.orderId, o.timestamp, o.kind, o.branch, o.manager, o.phone, o.product, o.qty, o.unitPrice, o.amount, o.memo, o.status]);
+    });
+    downloadCsv(csv, "주문취합");
+  });
+
+  // ---------- 리포트 ----------
+  function reportRows() {
+    var from = document.getElementById("rFrom").value;
+    var to = document.getElementById("rTo").value;
+    var st = document.getElementById("rStatus").value;
+    return state.orders.filter(function (o) {
+      var day = (o.timestamp || "").slice(0, 10);
+      if (from && day < from) return false;
+      if (to && day > to) return false;
+      if (st === "승인이상") {
+        if (["지점승인", "확정", "결제완료", "출고"].indexOf(o.status) < 0) return false;
+      } else if (st) {
+        if (o.status !== st) return false;
+      } else if (o.status === "취소" || o.status === "반려") {
+        return false;
+      }
+      return true;
+    });
+  }
+  var lastPivot = null;
+  document.getElementById("btnReport").addEventListener("click", function () {
+    var rows = reportRows();
+    var prods = [], branches = [];
+    var qty = {}, amt = {};
+    rows.forEach(function (o) {
+      if (prods.indexOf(o.product) < 0) prods.push(o.product);
+      if (branches.indexOf(o.branch) < 0) branches.push(o.branch);
+      var k = o.branch + "|" + o.product;
+      qty[k] = (qty[k] || 0) + o.qty;
+      amt[o.branch] = (amt[o.branch] || 0) + o.amount;
+    });
+    branches.sort();
+    var totalQty = rows.reduce(function (s, o) { return s + o.qty; }, 0);
+    var totalAmt = rows.reduce(function (s, o) { return s + o.amount; }, 0);
+    document.getElementById("reportStats").innerHTML =
+      stat("대상 주문 행", rows.length + "건") +
+      stat("참여 지점", branches.length + "곳") +
+      stat("총 수량", won(totalQty) + "부") +
+      stat("총 금액", won(totalAmt) + "원");
+
+    // 피벗 표
+    var html = "<table><thead><tr><th>지점</th>";
+    prods.forEach(function (p) { html += "<th class='num'>" + esc(p) + "</th>"; });
+    html += "<th class='num'>지점 합계</th></tr></thead><tbody>";
+    var pivotCsv = [["지점"].concat(prods, ["지점 합계"])];
+    branches.forEach(function (b) {
+      var rowSum = 0, csvRow = [b];
+      html += "<tr><td>" + esc(b) + "</td>";
+      prods.forEach(function (p) {
+        var v = qty[b + "|" + p] || 0; rowSum += v; csvRow.push(v);
+        html += "<td class='num'>" + (v ? won(v) : "-") + "</td>";
+      });
+      csvRow.push(rowSum);
+      pivotCsv.push(csvRow);
+      html += "<td class='num'><strong>" + won(rowSum) + "</strong></td></tr>";
+    });
+    html += "<tr><td><strong>상품 합계</strong></td>";
+    var footCsv = ["상품 합계"];
+    prods.forEach(function (p) {
+      var v = branches.reduce(function (s, b) { return s + (qty[b + "|" + p] || 0); }, 0);
+      footCsv.push(v);
+      html += "<td class='num'><strong>" + won(v) + "</strong></td>";
+    });
+    footCsv.push(totalQty);
+    pivotCsv.push(footCsv);
+    html += "<td class='num'><strong>" + won(totalQty) + "</strong></td></tr></tbody></table>";
+    document.getElementById("pivotBox").innerHTML = html;
+    lastPivot = pivotCsv;
+
+    // 정산 표
+    var sHtml = "<table><thead><tr><th>지점</th><th class='num'>주문 금액(원)</th><th class='num'>비중</th></tr></thead><tbody>";
+    branches.forEach(function (b) {
+      sHtml += "<tr><td>" + esc(b) + "</td><td class='num'>" + won(amt[b] || 0) + "</td><td class='num'>" +
+        (totalAmt ? ((amt[b] || 0) / totalAmt * 100).toFixed(1) + "%" : "-") + "</td></tr>";
+    });
+    sHtml += "<tr><td><strong>합계</strong></td><td class='num'><strong>" + won(totalAmt) + "</strong></td><td class='num'>100%</td></tr></tbody></table>";
+    document.getElementById("settleBox").innerHTML = sHtml;
+  });
+  document.getElementById("btnCsvReport").addEventListener("click", function () {
+    if (!lastPivot) { toast("먼저 집계 실행을 눌러 주세요."); return; }
+    downloadCsv(lastPivot, "지점상품피벗");
+  });
+
+  // ---------- 지점 관리 ----------
+  function pageLink(file, param, code) {
+    return new URL(file + "?" + param + "=" + encodeURIComponent(code), location.href).href;
+  }
+  function copyBtnTd(label, url) {
+    var td = document.createElement("td");
+    if (!url) {
+      td.innerHTML = "<span class='muted'>저장 후 생성</span>";
+      return td;
+    }
+    var btn = document.createElement("button");
+    btn.className = "btn ghost"; btn.textContent = label;
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(url).then(function () {
+        btn.textContent = "복사됨";
+        setTimeout(function () { btn.textContent = label; }, 1500);
+      });
+    });
+    td.appendChild(btn);
+    return td;
+  }
+  function renderBranches() {
+    var tb = document.querySelector("#branchTable tbody");
+    tb.innerHTML = "";
+    state.branches.forEach(function (b, i) {
+      var tr = document.createElement("tr");
+      var nameTd = document.createElement("td");
+      var nameInput = document.createElement("input");
+      nameInput.type = "text"; nameInput.value = b.name; nameInput.style.width = "100%";
+      nameInput.addEventListener("input", function () { b.name = nameInput.value; });
+      nameTd.appendChild(nameInput);
+      var actTd = document.createElement("td");
+      var chk = document.createElement("input");
+      chk.type = "checkbox"; chk.checked = !!b.active;
+      chk.addEventListener("change", function () { b.active = chk.checked; });
+      actTd.appendChild(chk);
+      var stuTd = copyBtnTd("링크 복사", b.code ? pageLink("student.html", "b", b.code) : "");
+      var mgrTd = copyBtnTd("링크 복사", b.viewKey ? pageLink("branch.html", "k", b.viewKey) : "");
+      var delTd = document.createElement("td");
+      var del = document.createElement("button");
+      del.className = "btn danger"; del.textContent = "삭제";
+      del.addEventListener("click", function () {
+        state.branches.splice(i, 1); renderBranches();
+      });
+      delTd.appendChild(del);
+      tr.appendChild(nameTd); tr.appendChild(actTd); tr.appendChild(stuTd); tr.appendChild(mgrTd); tr.appendChild(delTd);
+      tb.appendChild(tr);
+    });
+  }
+  document.getElementById("btnAddBranch").addEventListener("click", function () {
+    var v = document.getElementById("newBranch").value.trim();
+    if (!v) return;
+    state.branches.push({ name: v, active: true });
+    document.getElementById("newBranch").value = "";
+    renderBranches();
+  });
+  document.getElementById("btnBulkBranch").addEventListener("click", function () {
+    var lines = document.getElementById("bulkBranches").value.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+    var exists = state.branches.map(function (b) { return b.name; });
+    var added = 0;
+    lines.forEach(function (n) { if (exists.indexOf(n) < 0) { state.branches.push({ name: n, active: true }); added++; } });
+    document.getElementById("bulkBranches").value = "";
+    renderBranches();
+    toast(added + "개 지점 추가됨 (저장 버튼을 눌러야 반영)");
+  });
+  document.getElementById("btnSaveBranches").addEventListener("click", function () {
+    var clean = state.branches.filter(function (b) { return b.name && b.name.trim(); });
+    post({ action: "saveBranches", data: clean })
+      .then(function () { toast("지점 목록 저장 완료 (" + clean.length + "곳)"); loadAll(); })
+      .catch(function (e) { toast("저장 실패: " + e.message); });
+  });
+
+  // ---------- 상품 관리 ----------
+  function renderProducts() {
+    var tb = document.querySelector("#productTable tbody");
+    tb.innerHTML = "";
+    state.products.forEach(function (p, i) {
+      var tr = document.createElement("tr");
+      var nameTd = document.createElement("td");
+      var nameInput = document.createElement("input");
+      nameInput.type = "text"; nameInput.value = p.name; nameInput.style.width = "100%";
+      nameInput.addEventListener("input", function () { p.name = nameInput.value; });
+      nameTd.appendChild(nameInput);
+      var priceTd = document.createElement("td");
+      priceTd.className = "num";
+      var priceInput = document.createElement("input");
+      priceInput.type = "number"; priceInput.value = p.price || 0; priceInput.style.width = "110px";
+      priceInput.addEventListener("input", function () { p.price = parseInt(priceInput.value, 10) || 0; });
+      priceTd.appendChild(priceInput);
+      var actTd = document.createElement("td");
+      var chk = document.createElement("input");
+      chk.type = "checkbox"; chk.checked = !!p.active;
+      chk.addEventListener("change", function () { p.active = chk.checked; });
+      actTd.appendChild(chk);
+      var delTd = document.createElement("td");
+      var del = document.createElement("button");
+      del.className = "btn danger"; del.textContent = "삭제";
+      del.addEventListener("click", function () { state.products.splice(i, 1); renderProducts(); });
+      delTd.appendChild(del);
+      tr.appendChild(nameTd); tr.appendChild(priceTd); tr.appendChild(actTd); tr.appendChild(delTd);
+      tb.appendChild(tr);
+    });
+  }
+  document.getElementById("btnAddProduct").addEventListener("click", function () {
+    var v = document.getElementById("newProduct").value.trim();
+    if (!v) return;
+    state.products.push({ name: v, price: parseInt(document.getElementById("newPrice").value, 10) || 0, active: true });
+    document.getElementById("newProduct").value = ""; document.getElementById("newPrice").value = "";
+    renderProducts();
+  });
+  document.getElementById("btnSaveProducts").addEventListener("click", function () {
+    var clean = state.products.filter(function (p) { return p.name && p.name.trim(); });
+    post({ action: "saveProducts", data: clean })
+      .then(function () { toast("상품 목록 저장 완료 (" + clean.length + "종)"); loadAll(); })
+      .catch(function (e) { toast("저장 실패: " + e.message); });
+  });
+
+  // ---------- 수동 입력 ----------
+  document.getElementById("btnParse").addEventListener("click", function () {
+    var lines = document.getElementById("importText").value.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+    var rows = [], errs = [];
+    lines.forEach(function (line, idx) {
+      var parts = line.indexOf("\t") >= 0 ? line.split("\t") : line.split("/");
+      parts = parts.map(function (s) { return s.trim(); }).filter(Boolean);
+      if (parts.length < 3) { errs.push((idx + 1) + "행: 항목이 3개 미만 — " + line); return; }
+      var qty = parseInt(parts[parts.length - 1].replace(/[^0-9]/g, ""), 10);
+      if (!qty || qty <= 0) { errs.push((idx + 1) + "행: 수량 인식 실패 — " + line); return; }
+      var branch = parts[0], product = parts.slice(1, parts.length - 1).join(" ");
+      var known = state.products.filter(function (p) { return p.name === product; })[0];
+      var branchKnown = state.branches.some(function (b) { return b.name === branch; });
+      rows.push({
+        branch: branch, product: product, qty: qty,
+        price: known ? known.price : 0,
+        warn: [
+          branchKnown ? null : "미등록 지점",
+          known ? null : "미등록 상품(단가 0원 처리)"
+        ].filter(Boolean).join(", ")
+      });
+    });
+    state.importRows = rows;
+    var html = "";
+    if (errs.length) html += '<div class="warn-box">' + errs.map(esc).join("<br>") + "</div>";
+    if (rows.length) {
+      html += "<div class='table-scroll'><table><thead><tr><th>지점</th><th>상품</th><th class='num'>수량</th><th class='num'>단가</th><th>확인 필요</th></tr></thead><tbody>";
+      rows.forEach(function (r) {
+        html += "<tr><td>" + esc(r.branch) + "</td><td>" + esc(r.product) + "</td><td class='num'>" + won(r.qty) +
+          "</td><td class='num'>" + won(r.price) + "</td><td style='color:var(--warn)'>" + esc(r.warn) + "</td></tr>";
+      });
+      html += "</tbody></table></div>";
+    }
+    document.getElementById("importPreview").innerHTML = html || "<p class='muted'>인식된 주문이 없습니다.</p>";
+    document.getElementById("btnImportSubmit").disabled = !rows.length;
+  });
+  document.getElementById("btnImportSubmit").addEventListener("click", function () {
+    var manager = document.getElementById("importManager").value.trim() || "본사 수동등록";
+    var byBranch = {};
+    state.importRows.forEach(function (r) {
+      (byBranch[r.branch] = byBranch[r.branch] || []).push({ product: r.product, qty: r.qty, price: r.price });
+    });
+    var branches = Object.keys(byBranch);
+    var done = 0, fail = 0;
+    var chain = Promise.resolve();
+    branches.forEach(function (b) {
+      chain = chain.then(function () {
+        return post({ action: "order", data: { branch: b, manager: manager, phone: "-", memo: "수동 등록", items: byBranch[b] } })
+          .then(function () { done++; })
+          .catch(function () { fail++; });
+      });
+    });
+    chain.then(function () {
+      toast("수동 등록 완료: 지점 " + done + "곳 성공" + (fail ? ", " + fail + "곳 실패" : ""));
+      state.importRows = [];
+      document.getElementById("importText").value = "";
+      document.getElementById("importPreview").innerHTML = "";
+      document.getElementById("btnImportSubmit").disabled = true;
+      loadAll();
+    });
+  });
+
+  // ---------- 설정 ----------
+  document.getElementById("setApi").value = localStorage.getItem(LS_API) || "";
+  document.getElementById("setToken").value = token();
+  document.getElementById("btnSaveSettings").addEventListener("click", function () {
+    var api = document.getElementById("setApi").value.trim();
+    var tk = document.getElementById("setToken").value.trim();
+    if (api) localStorage.setItem(LS_API, api); else localStorage.removeItem(LS_API);
+    if (tk) localStorage.setItem(LS_TOKEN, tk); else localStorage.removeItem(LS_TOKEN);
+    document.getElementById("settingsResult").textContent = "저장됨. 연결 테스트 중...";
+    loadAll().then(function () {
+      document.getElementById("settingsResult").textContent =
+        document.getElementById("connBadge").classList.contains("ok") ? "연결 성공" : "연결 실패 — URL과 토큰을 확인하세요.";
+    });
+  });
+  document.getElementById("btnClearSettings").addEventListener("click", function () {
+    localStorage.removeItem(LS_API); localStorage.removeItem(LS_TOKEN);
+    document.getElementById("setApi").value = ""; document.getElementById("setToken").value = "";
+    document.getElementById("settingsResult").textContent = "이 브라우저의 설정을 지웠습니다.";
+  });
+
+  // ---------- CSV ----------
+  function downloadCsv(rows, name) {
+    var csv = rows.map(function (r) {
+      return r.map(function (c) {
+        var s = String(c == null ? "" : c);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).join(",");
+    }).join("\r\n");
+    var blob = new Blob([String.fromCharCode(0xFEFF) + csv], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    var d = new Date();
+    a.download = name + "_" + d.toISOString().slice(0, 10) + ".csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  loadAll();
+})();
+</script>
+</body>
+</html>

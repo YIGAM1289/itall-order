@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>지점 주문 취합·승인 — 잇올 독학관리학원</title>
+<style>
+  :root {
+    --navy: #1f2a44;
+    --accent: #2f6fed;
+    --bg: #f4f6fa;
+    --line: #dde3ee;
+    --text: #222b3a;
+    --muted: #6b7688;
+    --ok: #1a7f4e;
+    --warn: #b3261e;
+    --amber: #9a6700;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; background: var(--bg); color: var(--text); line-height: 1.55; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 20px 16px 80px; }
+  header { background: var(--navy); color: #fff; border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; }
+  header h1 { font-size: 18px; }
+  header .sub { font-size: 13px; opacity: .85; margin-top: 4px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; color: var(--navy); margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+  th { background: #f0f3f9; color: var(--navy); font-size: 12px; white-space: nowrap; }
+  td.num, th.num { text-align: right; }
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .tag { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 12px; white-space: nowrap; }
+  .tag.접수 { background: #eef3fe; color: var(--accent); }
+  .tag.지점승인 { background: #e7f5ee; color: var(--ok); }
+  .tag.반려 { background: #fdecea; color: var(--warn); }
+  .tag.확정, .tag.결제완료, .tag.출고 { background: #ececf2; color: var(--navy); }
+  .tag.취소 { background: #fdecea; color: var(--warn); }
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .stat { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-size: 20px; font-weight: 700; color: var(--navy); margin-top: 2px; }
+  .btn { padding: 7px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+  .btn.ghost { background: #fff; color: var(--accent); }
+  .btn.danger { background: #fff; color: var(--warn); border-color: #f0b9b5; }
+  .btn.gray { background: #fff; color: var(--muted); border-color: var(--line); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  select { padding: 8px 10px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .msg { padding: 14px 16px; border-radius: 10px; font-size: 14px; margin-bottom: 16px; display: none; }
+  .msg.err { background: #fdecea; color: var(--warn); border: 1px solid #f5c6c2; display: block; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 12px 22px; border-radius: 24px; font-size: 14px; display: none; z-index: 50; }
+  .approve-guide { background: #eef3fe; border: 1px solid #cdddfa; border-radius: 8px; padding: 12px 14px; font-size: 13px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>지점 주문 취합·승인</h1>
+    <div class="sub" id="branchName">지점 확인 중...</div>
+  </header>
+
+  <div id="msgBox" class="msg"></div>
+
+  <div id="mainArea" style="display:none">
+    <div class="approve-guide">
+      학생 주문을 확인한 뒤 승인 또는 반려를 눌러 주세요. 승인된 주문만 본사 취합·발송 대상이 됩니다.
+      승인 후에도 본사 확정 전이라면 되돌리기가 가능합니다.
+    </div>
+
+    <div class="stat-row" id="stats"></div>
+
+    <div class="card">
+      <div class="row" style="margin-bottom:12px">
+        <select id="fStatus">
+          <option value="">전체 상태</option>
+          <option>접수</option><option>지점승인</option><option>반려</option>
+          <option>확정</option><option>결제완료</option><option>출고</option><option>취소</option>
+        </select>
+        <button class="btn ghost" id="btnReload">새로고침</button>
+        <button class="btn" id="btnApproveAll">대기 전체 승인</button>
+        <button class="btn gray" id="btnCsv">CSV 다운로드</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>주문번호</th><th>접수일시</th><th>구분</th><th>주문자</th><th>상품</th>
+            <th class="num">수량</th><th class="num">금액</th><th>상태</th><th>처리</th>
+          </tr></thead>
+          <tbody id="orderBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>상품별 집계 (반려·취소 제외)</h2>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>상품</th><th class="num">승인 대기 수량</th><th class="num">승인 완료 수량</th><th class="num">합계</th></tr></thead>
+          <tbody id="sumBody"></tbody>
+        </table>
+      </div>
+      <p class="muted" style="margin-top:8px">승인 완료 수량 = 지점승인 이후 상태(지점승인·확정·결제완료·출고) 주문의 합.</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  var API = (window.ITALL_CONFIG && window.ITALL_CONFIG.apiUrl) || "";
+  var KEY = new URLSearchParams(location.search).get("k") || "";
+  var orders = [];
+
+  function won(n) { return (n || 0).toLocaleString("ko-KR"); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function toast(m) {
+    var t = document.getElementById("toast");
+    t.textContent = m; t.style.display = "block";
+    clearTimeout(t._h); t._h = setTimeout(function () { t.style.display = "none"; }, 2600);
+  }
+  function fail(text) {
+    var box = document.getElementById("msgBox");
+    box.className = "msg err"; box.textContent = text;
+    document.getElementById("branchName").textContent = "접속 불가";
+  }
+  function stat(k, v) { return '<div class="stat"><div class="k">' + k + '</div><div class="v">' + v + "</div></div>"; }
+
+  var APPROVED = ["지점승인", "확정", "결제완료", "출고"];
+
+  function load() {
+    return fetch(API + "?action=branch&k=" + encodeURIComponent(KEY))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.error || "로드 실패");
+        orders = res.orders || [];
+        document.getElementById("branchName").textContent = res.branchName + " — 학생 주문 관리";
+        document.getElementById("mainArea").style.display = "block";
+        render();
+      })
+      .catch(function (e) { fail(e.message); });
+  }
+
+  function setStatus(o, status, btn) {
+    if (btn) btn.disabled = true;
+    fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "branchSetStatus", k: KEY, orderId: o.orderId, product: o.product, status: status })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.error || "실패");
+        o.status = status; render();
+        toast(o.orderId + " → " + status);
+      })
+      .catch(function (e) { toast("처리 실패: " + e.message); if (btn) btn.disabled = false; });
+  }
+
+  function render() {
+    var f = document.getElementById("fStatus").value;
+    var tb = document.getElementById("orderBody");
+    tb.innerHTML = "";
+    var pending = 0, approved = 0, totalAmt = 0;
+    orders.forEach(function (o) {
+      if (o.status === "접수") pending++;
+      if (APPROVED.indexOf(o.status) >= 0) { approved++; totalAmt += o.amount; }
+    });
+    orders
+      .filter(function (o) { return !f || o.status === f; })
+      .forEach(function (o) {
+        var tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + esc(o.orderId) + "</td>" +
+          "<td>" + esc((o.timestamp || "").slice(0, 16).replace("T", " ")) + "</td>" +
+          "<td>" + esc(o.kind) + "</td>" +
+          "<td>" + esc(o.manager) + "<br><span class='muted'>" + esc(o.phone) + "</span></td>" +
+          "<td>" + esc(o.product) + "</td>" +
+          "<td class='num'>" + won(o.qty) + "</td>" +
+          "<td class='num'>" + won(o.amount) + "</td>" +
+          "<td><span class='tag " + esc(o.status) + "'>" + esc(o.status) + "</span></td>" +
+          "<td></td>";
+        var cell = tr.lastElementChild;
+        if (o.status === "접수") {
+          var ap = document.createElement("button");
+          ap.className = "btn"; ap.textContent = "승인";
+          ap.addEventListener("click", function () { setStatus(o, "지점승인", ap); });
+          var rj = document.createElement("button");
+          rj.className = "btn danger"; rj.textContent = "반려"; rj.style.marginLeft = "6px";
+          rj.addEventListener("click", function () { setStatus(o, "반려", rj); });
+          cell.appendChild(ap); cell.appendChild(rj);
+        } else if (o.status === "지점승인" || o.status === "반려") {
+          var undo = document.createElement("button");
+          undo.className = "btn gray"; undo.textContent = "되돌리기";
+          undo.addEventListener("click", function () { setStatus(o, "접수", undo); });
+          cell.appendChild(undo);
+        } else {
+          cell.innerHTML = "<span class='muted'>본사 처리 중</span>";
+        }
+        tb.appendChild(tr);
+      });
+
+    document.getElementById("stats").innerHTML =
+      stat("승인 대기", pending + "건") +
+      stat("승인 완료", approved + "건") +
+      stat("승인분 금액", won(totalAmt) + "원");
+
+    // 상품별 집계
+    var sums = {};
+    orders.forEach(function (o) {
+      if (o.status === "반려" || o.status === "취소") return;
+      var s = sums[o.product] = sums[o.product] || { pending: 0, approved: 0 };
+      if (o.status === "접수") s.pending += o.qty;
+      else if (APPROVED.indexOf(o.status) >= 0) s.approved += o.qty;
+    });
+    var sb = document.getElementById("sumBody");
+    sb.innerHTML = "";
+    Object.keys(sums).forEach(function (p) {
+      var s = sums[p];
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + esc(p) + "</td><td class='num'>" + won(s.pending) +
+        "</td><td class='num'>" + won(s.approved) + "</td><td class='num'><strong>" + won(s.pending + s.approved) + "</strong></td>";
+      sb.appendChild(tr);
+    });
+    if (!Object.keys(sums).length) sb.innerHTML = "<tr><td colspan='4' class='muted'>주문이 없습니다.</td></tr>";
+  }
+
+  document.getElementById("fStatus").addEventListener("input", render);
+  document.getElementById("btnReload").addEventListener("click", load);
+  document.getElementById("btnApproveAll").addEventListener("click", function () {
+    var pending = orders.filter(function (o) { return o.status === "접수"; });
+    if (!pending.length) { toast("승인 대기 주문이 없습니다."); return; }
+    if (!confirm("대기 중인 " + pending.length + "건을 모두 승인할까요?")) return;
+    var chain = Promise.resolve();
+    pending.forEach(function (o) {
+      chain = chain.then(function () {
+        return fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "branchSetStatus", k: KEY, orderId: o.orderId, product: o.product, status: "지점승인" })
+        }).then(function (r) { return r.json(); }).then(function (res) { if (res.ok) o.status = "지점승인"; });
+      });
+    });
+    chain.then(function () { render(); toast("전체 승인 완료"); });
+  });
+  document.getElementById("btnCsv").addEventListener("click", function () {
+    var rows = [["주문번호", "접수일시", "구분", "주문자", "연락처", "상품", "수량", "단가", "금액", "메모", "상태"]];
+    orders.forEach(function (o) {
+      rows.push([o.orderId, o.timestamp, o.kind, o.manager, o.phone, o.product, o.qty, o.unitPrice, o.amount, o.memo, o.status]);
+    });
+    var csv = rows.map(function (r) {
+      return r.map(function (c) {
+        var s = String(c == null ? "" : c);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).join(",");
+    }).join("\r\n");
+    var blob = new Blob([String.fromCharCode(0xFEFF) + csv], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "지점주문_" + new Date().toISOString().slice(0, 10) + ".csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  if (!API) { fail("시스템 연결 전입니다. 본사에 문의해 주세요."); return; }
+  if (!KEY) { fail("잘못된 접속 주소입니다. 본사에서 받은 지점 관리 링크로 접속해 주세요."); return; }
+  load();
+})();
+</script>
+</body>
+</html>
